@@ -1,8 +1,5 @@
 # SepsisAI-Orchestrator
 
-A containerized, scalable platform for deploying AI models and real-time monitoring in early sepsis detection.
-
-
 SepsisAI-Orchestrator is an open-source, containerized platform for deploying and scaling clinical AI models. It standardizes heterogeneous EHR data using an CDA preprocessing service, stores structured data in a NoSQL database, serves AI inference through REST APIs, and provides real-time visualization via a web dashboard. The platform is built with Docker and orchestrated with Kubernetes to enable horizontal scaling, fault tolerance, and reproducible deployments, and has been validated under high concurrency using k6 load testing.
 
 ---
