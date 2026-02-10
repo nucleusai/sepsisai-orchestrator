@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-prediction
+  namespace: sepsisai
+  labels:
+    app: ai-prediction
+spec:
+  # Start with 3 replicas; scale up to match CPU thread count for
+  # optimal throughput (see paper Section 4.3.3).
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ai-prediction
+  template:
+    metadata:
+      labels:
+        app: ai-prediction
+    spec:
+      containers:
+        - name: ai-prediction
+          image: sepsisai/ai-prediction:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: sepsisai-config
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30

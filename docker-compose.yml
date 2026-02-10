@@ -1,0 +1,95 @@
+# =============================================================================
+# SepsisAI-Orchestrator  —  Baseline Architecture (Docker Compose)
+# =============================================================================
+#
+# Quick start:
+#   1. docker compose build
+#   2. docker compose run --rm cda-preprocessing   # load sample data (once)
+#   3. docker compose up -d                        # start AI + dashboard
+#
+# Services:
+#   mongo            — MongoDB 7 (data layer)
+#   cda-preprocessing — PSV → CDA → MongoDB  (runs on demand, then exits)
+#   ai-prediction    — FastAPI + LightGBM    (http://localhost:8000)
+#   dashboard        — Streamlit UI          (http://localhost:8501)
+# =============================================================================
+
+services:
+  # ── MongoDB ──────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: sepsisai-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── CDA Preprocessing (run-once job) ────────────────────────────────────
+  # Usage:  docker compose run --rm cda-preprocessing
+  cda-preprocessing:
+    build:
+      context: ./services/cda_preprocessing
+    container_name: sepsisai-cda
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_HOST: mongo
+      MONGO_PORT: "27017"
+      MONGO_DB: SepsisTraining
+      INPUT_DATA_DIR: /input_data
+      OUTPUT_DATA_DIR: /output_data
+    volumes:
+      - ./data/sample:/input_data:ro
+    profiles:
+      - seed
+
+  # ── AI Prediction Service ───────────────────────────────────────────────
+  ai-prediction:
+    build:
+      context: ./services/ai_prediction
+    container_name: sepsisai-ai
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_HOST: mongo
+      MONGO_PORT: "27017"
+      MONGO_DB: SepsisTraining
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # ── Monitoring Dashboard ────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: ./services/dashboard
+    container_name: sepsisai-dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      ai-prediction:
+        condition: service_healthy
+    environment:
+      MONGO_HOST: mongo
+      MONGO_PORT: "27017"
+      MONGO_DB: SepsisTraining
+      AI_SERVICE_HOST: ai-prediction
+      AI_SERVICE_PORT: "8000"
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

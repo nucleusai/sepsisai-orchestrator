@@ -1,0 +1,26 @@
+# Run-once Job: converts PSV data → CDA structure in MongoDB.
+# To re-run: kubectl delete job cda-preprocessing -n sepsisai && kubectl apply -f cda-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cda-preprocessing
+  namespace: sepsisai
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: cda-preprocessing
+    spec:
+      containers:
+        - name: cda
+          image: sepsisai/cda-preprocessing:latest
+          envFrom:
+            - configMapRef:
+                name: sepsisai-config
+          env:
+            - name: INPUT_DATA_DIR
+              value: "/input_data"
+            - name: OUTPUT_DATA_DIR
+              value: "/output_data"
+      restartPolicy: Never
